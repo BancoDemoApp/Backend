@@ -1,6 +1,6 @@
 from rest_framework import generics
-from .models import Usuario
-from .serializers import UsuarioSerializer
+from .models import Usuario, Cuenta
+from .serializers import UsuarioSerializer, CuentaSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
@@ -20,3 +20,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    
+
+class CuentaCreateView(generics.CreateAPIView):
+    queryset = Cuenta.objects.all()
+    serializer_class = CuentaSerializer
