@@ -1,13 +1,20 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
-from .models import Usuario, Cuenta
+from django.db import transaction as db_transaction
+from .models import Usuario, Cuenta, Transaccion, Log
 import random
 
 class UsuarioSerializer(serializers.ModelSerializer):
+    """
+    Serializer para el modelo Usuario.
+    
+    Este serializer gestiona la creación de usuarios, y si el tipo es "Cliente",
+    se crea automáticamente una cuenta de ahorros activa asociada.
+    """
     class Meta:
         model = Usuario
         fields = [
-            'id_usuario',
+            'id',
             'nombre',
             'correo_electronico',
             'telefono',
@@ -19,43 +26,20 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'password': { 'write_only': True },
             'fecha_registro': { 'read_only': True }
         }
-        
-    def create(self, validated_data):
-        validated_data['password'] = make_password(validated_data['password'])
-        return Usuario.objects.create(**validated_data)
-    
-    
-class CuentaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model=Cuenta
-        fields = [
-            'id_cuenta', 
-            'numero_cuenta', 
-            'tipo',
-            'saldo',
-            'estado',
-            'id_usuario'
-        ]
-        read_only_fields = ['numero_cuenta', 'saldo']
-        
-    def validate_tipo(self, value):
-        if value not in ['Ahorros', 'Corriente']:
-            raise serializers.ValidationError("Tipo de cuenta debe ser 'Ahorros' o 'Corriente'.")
-        return value
-    
-    def validate_estado(self, value):
-        if value not in ['Activa', 'Inactiva']:
-            raise serializers.ValidationError("Tipo de cuenta debe ser 'Activa' o 'Inactiva'.")
-        return value
-    
+
     def generate_numero_cuenta(self):
-        """Genera un número con formato XXX-XXXXXXX-XX"""
+        """
+        Genera un número de cuenta en el formato 999-9999999-99
+        """
         parte1 = str(random.randint(100, 999))
         parte2 = str(random.randint(1000000, 9999999))
         parte3 = str(random.randint(10, 99))
         return f"{parte1}-{parte2}-{parte3}"
-    
+
     def generate_unique_numero_cuenta(self):
+        """
+        Intenta generar un número de cuenta único.
+        """
         intentos = 0
         while True:
             numero = self.generate_numero_cuenta()
@@ -64,8 +48,192 @@ class CuentaSerializer(serializers.ModelSerializer):
             intentos += 1
             if intentos > 10:
                 raise serializers.ValidationError("No se puede generar un número de cuenta único.")
-    
+
     def create(self, validated_data):
-        validated_data['numero_cuenta'] = self.generate_unique_numero_cuenta()
-        validated_data['saldo'] = 0.00
-        return Cuenta.objects.create(**validated_data)
+        validated_data['password'] = make_password(validated_data['password'])
+        usuario = Usuario.objects.create(**validated_data)
+
+        # Si el usuario es de tipo 'Cliente', crear cuenta de ahorros automáticamente
+        if usuario.tipo == 'Cliente':
+            Cuenta.objects.create(
+                numero_cuenta=self.generate_unique_numero_cuenta(),
+                tipo='Ahorros',
+                saldo=0.00,
+                estado='Activa',
+                id=usuario
+            )
+
+        return usuario
+    
+    
+class CuentaSerializer(serializers.Serializer):
+    """
+    Serializer para la creación de cuentas bancarias por parte de un operador.
+    
+    Requiere el correo del cliente y el tipo de cuenta (Ahorros o Corriente).
+    """
+    correo_cliente = serializers.EmailField(write_only = True)
+    tipo = serializers.ChoiceField(choices=['Ahorros', 'Corriente'])
+
+    def generate_numero_cuenta(self):
+        parte1 = str(random.randint(100, 999))
+        parte2 = str(random.randint(1000000, 9999999))
+        parte3 = str(random.randint(10, 99))
+        return f"{parte1}-{parte2}-{parte3}"
+
+    def generate_unique_numero_cuenta(self):
+        for _ in range(10):
+            numero = self.generate_numero_cuenta()
+            if not Cuenta.objects.filter(numero_cuenta=numero).exists():
+                return numero
+        raise serializers.ValidationError("No se pudo generar un número de cuenta único.")
+
+    @db_transaction.atomic
+    def create(self, validated_data):
+        correo_cliente = validated_data['correo_cliente']
+        tipo = validated_data['tipo']
+        operador = self.context['request'].user
+
+        # Validar que quien hace la solicitud es un operador
+        if operador.tipo != 'Operador':
+            raise serializers.ValidationError("Solo operadores pueden crear cuentas.")
+
+        # Buscar al cliente
+        try:
+            cliente = Usuario.objects.get(correo_electronico=correo_cliente, tipo='Cliente')
+        except Usuario.DoesNotExist:
+            raise serializers.ValidationError("No se encontró un cliente con ese correo.")
+
+        # Crear la cuenta
+        cuenta = Cuenta.objects.create(
+            numero_cuenta=self.generate_unique_numero_cuenta(),
+            tipo=tipo,
+            saldo=0.00,
+            estado='Activa',
+            id_usuario=cliente
+        )
+
+        # Crear log de auditoría
+        Log.objects.create(
+            id_usuario=operador,
+            accion="Creación de cuenta",
+            descripcion=f"Se creó una cuenta de tipo {tipo} para el cliente {cliente.correo_electronico} (ID {cliente.id})"
+        )
+
+        return cuenta
+    
+    
+class TransaccionSerializer(serializers.ModelSerializer):
+    """
+    Serializer para registrar depósitos, retiros y transferencias.
+
+    - Operadores pueden hacer depósitos y retiros.
+    - Clientes pueden hacer transferencias entre cuentas propias y otras.
+    """
+    correo_cliente = serializers.EmailField(write_only=True, required=False)  # Solo para operadores
+    numero_cuenta_destino = serializers.CharField(write_only=True, required=False)  # Solo para transferencias
+
+    class Meta:
+        model = Transaccion
+        fields = [
+            'id_transaccion',
+            'tipo',
+            'cantidad',
+            'fecha',
+            'estado',
+            'id_cuenta',
+            'correo_cliente',
+            'numero_cuenta_destino',
+            'id_operador',
+            'id_cuenta_destino',
+        ]
+        read_only_fields = ['estado', 'fecha', 'id_operador', 'id_cuenta_destino']
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        tipo = attrs.get('tipo')
+        cantidad = attrs.get('cantidad')
+        cuenta_origen = attrs.get('id_cuenta')
+
+        if tipo in ['Deposito', 'Retiro']:
+            if user.tipo != 'Operador':
+                raise serializers.ValidationError("Solo operadores pueden realizar depósitos o retiros.")
+            correo = attrs.get('correo_cliente')
+            if not correo:
+                raise serializers.ValidationError("Debe especificar el correo del cliente.")
+            if cuenta_origen.id_usuario.correo_electronico != correo:
+                raise serializers.ValidationError("La cuenta no pertenece al cliente especificado.")
+        elif tipo == 'Transferencia':
+            if user.tipo != 'Cliente':
+                raise serializers.ValidationError("Solo clientes pueden realizar transferencias.")
+            if cuenta_origen.id_usuario != user:
+                raise serializers.ValidationError("La cuenta no le pertenece al usuario autenticado.")
+            if cantidad > cuenta_origen.saldo:
+                attrs['estado'] = 'Cancelada'
+            else:
+                attrs['estado'] = 'Pendiente'
+        else:
+            raise serializers.ValidationError("Tipo de transacción no válido.")
+
+        return attrs
+
+    @db_transaction.atomic
+    def create(self, validated_data):
+        tipo = validated_data['tipo']
+        cuenta_origen = validated_data['id_cuenta']
+        cantidad = validated_data['cantidad']
+        user = self.context['request'].user
+        estado = validated_data.get('estado', 'Pendiente')
+
+        transaccion_data = {
+            'tipo': tipo,
+            'cantidad': cantidad,
+            'id_cuenta': cuenta_origen,
+            'estado': estado,
+        }
+
+        if tipo == 'Transferencia':
+            num_destino = validated_data.get('numero_cuenta_destino')
+            try:
+                cuenta_destino = Cuenta.objects.get(numero_cuenta=num_destino)
+            except Cuenta.DoesNotExist:
+                estado = 'Cancelada'
+            else:
+                if cantidad <= cuenta_origen.saldo:
+                    cuenta_origen.saldo -= cantidad
+                    cuenta_destino.saldo += cantidad
+                    cuenta_origen.save()
+                    cuenta_destino.save()
+                    estado = 'Completada'
+                else:
+                    estado = 'Cancelada'
+
+                transaccion_data['id_cuenta_destino'] = cuenta_destino
+
+        elif tipo == 'Deposito':
+            cuenta_origen.saldo += cantidad
+            cuenta_origen.save()
+            estado = 'Completada'
+            transaccion_data['id_operador'] = user
+
+        elif tipo == 'Retiro':
+            if cuenta_origen.saldo >= cantidad:
+                cuenta_origen.saldo -= cantidad
+                cuenta_origen.save()
+                estado = 'Completada'
+            else:
+                estado = 'Cancelada'
+            transaccion_data['id_operador'] = user
+
+        transaccion_data['estado'] = estado
+
+        transaccion = Transaccion.objects.create(**transaccion_data)
+
+        # Crear log automáticamente
+        Log.objects.create(
+            id_usuario=user,
+            accion=f"{tipo}",
+            descripcion=f"Transacción {tipo} de {cantidad} en cuenta {cuenta_origen.numero_cuenta} con estado {estado}."
+        )
+
+        return transaccion

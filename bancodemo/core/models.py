@@ -3,6 +3,15 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 
 
 class Cuenta(models.Model):
+    """
+    Representa una cuenta bancaria asociada a un usuario.
+    
+    Atributos:
+    - número de cuenta único
+    - tipo (Ahorros o Corriente)
+    - saldo actual
+    - estado (Activa o Inactiva)
+    """
     id_cuenta = models.AutoField(db_column='ID_Cuenta', primary_key=True)  # Field name made lowercase.
     numero_cuenta = models.CharField(db_column='Numero_Cuenta', unique=True, max_length=20)  # Field name made lowercase.
     tipo = models.CharField(db_column='Tipo', max_length=9)  # Field name made lowercase.
@@ -16,6 +25,13 @@ class Cuenta(models.Model):
 
 
 class Log(models.Model):
+    """
+    Guarda acciones importantes del sistema como auditoría.
+
+    Atributos:
+    - usuario que realizó la acción
+    - descripción y fecha del evento
+    """
     id_log = models.AutoField(db_column='ID_Log', primary_key=True)  # Field name made lowercase.
     id_usuario = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='ID_Usuario', blank=True, null=True)  # Field name made lowercase.
     accion = models.CharField(db_column='Accion', max_length=255)  # Field name made lowercase.
@@ -28,12 +44,40 @@ class Log(models.Model):
 
 
 class Transaccion(models.Model):
-    id_transaccion = models.AutoField(db_column='ID_Transaccion', primary_key=True)  # Field name made lowercase.
-    tipo = models.CharField(db_column='Tipo', max_length=13)  # Field name made lowercase.
-    cantidad = models.DecimalField(db_column='Cantidad', max_digits=10, decimal_places=2)  # Field name made lowercase.
-    fecha = models.DateTimeField(db_column='Fecha', blank=True, null=True)  # Field name made lowercase.
-    estado = models.CharField(db_column='Estado', max_length=10)  # Field name made lowercase.
-    id_cuenta = models.ForeignKey(Cuenta, models.DO_NOTHING, db_column='ID_Cuenta')  # Field name made lowercase.
+    """
+    Registra cada transacción bancaria del sistema: depósitos, retiros y transferencias.
+
+    Atributos:
+    - tipo de transacción
+    - cantidad
+    - fecha y estado
+    - cuenta origen, destino (si aplica) y operador que la realizó
+    """
+    id_transaccion = models.AutoField(db_column='ID_Transaccion', primary_key=True)
+    tipo = models.CharField(db_column='Tipo', max_length=13)
+    cantidad = models.DecimalField(db_column='Cantidad', max_digits=10, decimal_places=2)
+    fecha = models.DateTimeField(db_column='Fecha', blank=True, null=True)
+    estado = models.CharField(db_column='Estado', max_length=10)
+    
+    id_cuenta = models.ForeignKey(
+        'Cuenta', models.DO_NOTHING,
+        db_column='ID_Cuenta',
+        related_name='transacciones_origen'
+    )
+    
+    id_operador = models.ForeignKey(
+        'Usuario', models.DO_NOTHING,
+        db_column='ID_Operador',
+        null=True, blank=True,
+        related_name='transacciones_realizadas'
+    )
+    
+    id_cuenta_destino = models.ForeignKey(
+        'Cuenta', models.DO_NOTHING,
+        db_column='ID_Cuenta_Destino',
+        null=True, blank=True,
+        related_name='transacciones_recibidas'
+    )
 
     class Meta:
         managed = False
@@ -55,7 +99,13 @@ class UsuarioManager(BaseUserManager):
         return self.create_user(correo_electronico, nombre, password, **extra_fields)
     
 class Usuario(AbstractBaseUser, PermissionsMixin):
-    id_usuario = models.AutoField(db_column='ID_Usuario', primary_key=True)  # Field name made lowercase.
+    """
+    Modelo de usuario para clientes y operadores del sistema bancario.
+    
+    - Clientes: pueden ver sus cuentas, transacciones y hacer transferencias.
+    - Operadores: pueden crear cuentas y realizar depósitos o retiros.
+    """
+    id = models.AutoField(db_column='ID_Usuario', primary_key=True)  # Field name made lowercase.
     nombre = models.CharField(db_column='Nombre', max_length=100)  # Field name made lowercase.
     correo_electronico = models.CharField(db_column='Correo_Electronico', unique=True, max_length=100)  # Field name made lowercase.
     telefono = models.CharField(db_column='Telefono', max_length=15, blank=True, null=True)  # Field name made lowercase.
@@ -65,11 +115,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    
-    @property
-    def id(self):
-        return self.id_usuario
-    
+        
     objects = UsuarioManager()
     
     USERNAME_FIELD = 'correo_electronico'

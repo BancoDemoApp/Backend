@@ -18,6 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_env_file(os.path.join(BASE_DIR, ".env"))
 
 
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -43,6 +44,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
@@ -65,13 +67,17 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
-                'django.template.context_processors.request',
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',  # ← necesario
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
         },
     },
 ]
+
+TEMPLATES[0]['DIRS'] = [os.path.join(BASE_DIR, 'templates')]
+TEMPLATES[0]['APP_DIRS'] = True
 
 WSGI_APPLICATION = 'bancodemo.wsgi.application'
 
