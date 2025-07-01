@@ -11,6 +11,25 @@ Este proyecto es una API bancaria construida con Django REST Framework. Permite 
 - Simple JWT
 - drf-yasg (para documentación)
 
+## ⚙️ Configuración del Entorno
+
+Este proyecto utiliza **variables de entorno** para su configuración sensible.
+
+1. Dentro de la carpeta `bancodemo/` encontrarás un archivo de ejemplo llamado `.envexample`.
+2. Crea un archivo llamado `.env` en la misma ruta (`bancodemo/.env`) con el siguiente contenido:
+
+```env
+SECRET_KEY='llave super secreta'
+DEBUG=True
+
+DB_NAME=nombre_de_base_de_datos
+DB_USER=usuario_db
+DB_PASSWORD=contraseña_db
+DB_HOST=localhost
+DB_PORT=3306
+```
+**⚠️ Este archivo .env no debe subirse al repositorio por razones de seguridad.**
+
 ## 📁 Instalación
 
 1. Clona el repositorio:
