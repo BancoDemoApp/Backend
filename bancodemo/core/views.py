@@ -1,6 +1,6 @@
-from rest_framework import generics, permissions, serializers, filters
+from rest_framework import generics, permissions, serializers, filters, status
 from .models import Usuario, Cuenta, Transaccion, Log
-from .serializers import UsuarioSerializer, CuentaSerializer, TransaccionSerializer
+from .serializers import UsuarioSerializer, CuentaSerializer, TransaccionSerializer, CuentaDetalleSerializer, UsuarioPerfilSerializer, ActualizarContrasenaSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework.permissions import IsAuthenticated, BasePermission
@@ -89,6 +89,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     
+class PerfilClienteAPIView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UsuarioPerfilSerializer
+
+    def get_object(self):
+        # Esto asegura que solo el usuario autenticado vea/modifique su perfil
+        return self.request.user
+
 
 class CuentaCreateView(generics.CreateAPIView):
     """
@@ -127,7 +135,12 @@ class TransaccionCreateView(generics.CreateAPIView):
         user = self.request.user
         serializer.save(id_operador=user)
     
-    
+class ActualizarContrasenaView(generics.UpdateAPIView):
+    serializer_class = ActualizarContrasenaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
     
 ## Ver cuentas del cliente - Método GET
 class MisCuentasView(generics.ListAPIView):
@@ -136,7 +149,7 @@ class MisCuentasView(generics.ListAPIView):
 
     Devuelve una lista de cuentas filtradas por el cliente autenticado.
     """
-    serializer_class = CuentaSerializer
+    serializer_class = CuentaDetalleSerializer
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):

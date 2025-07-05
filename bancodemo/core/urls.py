@@ -12,7 +12,9 @@ from .views import (
     CancelarTransaccionView,
     BuscarClienteView,
     BuscarCuentaView,
-    ReporteTransaccionesView
+    ReporteTransaccionesView,
+    PerfilClienteAPIView,
+    ActualizarContrasenaView
 )
 
 urlpatterns = [
@@ -27,6 +29,7 @@ urlpatterns = [
     # ----------------------------
     path('cuentas/mis-cuentas/', MisCuentasView.as_view(), name='mis_cuentas'),
     path('transacciones/transferir/', TransferenciaView.as_view(), name='transferencia'),
+    path('mi-perfil/',PerfilClienteAPIView.as_view(), name="mi_perfil"),
 
     # ----------------------------
     # VISTAS PARA OPERADORES
@@ -44,4 +47,5 @@ urlpatterns = [
     # ----------------------------
     path('transacciones/', TransaccionListView.as_view(), name='lista_transacciones'),
     path('transacciones/crear/', TransaccionCreateView.as_view(), name='crear_transaccion'),
+    path('usuarios/cambiar-contrasena/', ActualizarContrasenaView.as_view(), name='cambiar_contrasena'),
 ]

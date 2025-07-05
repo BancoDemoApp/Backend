@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, check_password
 from django.db import transaction as db_transaction
 from .models import Usuario, Cuenta, Transaccion, Log
 import random
@@ -65,6 +65,49 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
         return usuario
     
+class ActualizarContrasenaSerializer(serializers.Serializer):
+    contrasena_actual = serializers.CharField(write_only=True)
+    nueva_contrasena = serializers.CharField(write_only=True)
+    confirmar_contrasena = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        contrasena_actual = attrs.get('contrasena_actual')
+        nueva_contrasena = attrs.get('nueva_contrasena')
+        confirmar_contrasena = attrs.get('confirmar_contrasena')
+
+        if not check_password(contrasena_actual, user.password):
+            raise serializers.ValidationError("La contraseña actual es incorrecta.")
+
+        if nueva_contrasena != confirmar_contrasena:
+            raise serializers.ValidationError("Las nuevas contraseñas no coinciden.")
+
+        if contrasena_actual == nueva_contrasena:
+            raise serializers.ValidationError("La nueva contraseña no puede ser igual a la actual.")
+
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        user.password = make_password(self.validated_data['nueva_contrasena'])
+        user.save()
+        return user
+    
+
+class UsuarioPerfilSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Usuario
+        fields = ['nombre', 'correo_electronico', 'telefono', 'fecha_registro']
+        read_only_fields = ['fecha_registro']
+
+    def update(self, instance, validated_data):
+        # Sólo se permite actualizar nombre, correo y teléfono
+        instance.nombre = validated_data.get('nombre', instance.nombre)
+        instance.correo_electronico = validated_data.get('correo_electronico', instance.correo_electronico)
+        instance.telefono = validated_data.get('telefono', instance.telefono)
+        instance.save()
+        return instance
+    
     
 class CuentaSerializer(serializers.Serializer):
     """
@@ -122,6 +165,17 @@ class CuentaSerializer(serializers.Serializer):
 
         return cuenta
     
+class CuentaDetalleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cuenta
+        fields = [
+            'id_cuenta',
+            'numero_cuenta',
+            'tipo',
+            'saldo',
+            'estado',
+        ]
+    
     
 class TransaccionSerializer(serializers.ModelSerializer):
     """
@@ -155,6 +209,10 @@ class TransaccionSerializer(serializers.ModelSerializer):
         cantidad = attrs.get('cantidad')
         cuenta_origen = attrs.get('id_cuenta')
 
+        # Nueva validación: evitar montos negativos o cero
+        if cantidad is None or cantidad <= 0:
+            raise serializers.ValidationError("La cantidad debe ser mayor a cero.")
+
         if tipo in ['Deposito', 'Retiro']:
             if user.tipo != 'Operador':
                 raise serializers.ValidationError("Solo operadores pueden realizar depósitos o retiros.")
@@ -163,6 +221,7 @@ class TransaccionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Debe especificar el correo del cliente.")
             if cuenta_origen.id_usuario.correo_electronico != correo:
                 raise serializers.ValidationError("La cuenta no pertenece al cliente especificado.")
+
         elif tipo == 'Transferencia':
             if user.tipo != 'Cliente':
                 raise serializers.ValidationError("Solo clientes pueden realizar transferencias.")
@@ -172,6 +231,7 @@ class TransaccionSerializer(serializers.ModelSerializer):
                 attrs['estado'] = 'Cancelada'
             else:
                 attrs['estado'] = 'Pendiente'
+
         else:
             raise serializers.ValidationError("Tipo de transacción no válido.")
 
