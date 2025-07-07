@@ -14,7 +14,8 @@ from .views import (
     BuscarCuentaView,
     ReporteTransaccionesView,
     PerfilClienteAPIView,
-    ActualizarContrasenaView
+    ActualizarContrasenaView,
+    LogoutView
 )
 
 urlpatterns = [
@@ -23,6 +24,7 @@ urlpatterns = [
     # ----------------------------
     path('users/create/', UsuarioCreateView.as_view(), name='crear_usuario'),
     path('users/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('logout/', LogoutView.as_view(), name='logout'),
 
     # ----------------------------
     # VISTAS PARA CLIENTES

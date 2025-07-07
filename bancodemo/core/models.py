@@ -22,6 +22,7 @@ class Cuenta(models.Model):
     class Meta:
         managed = False
         db_table = 'cuenta'
+        ordering = ['id_cuenta']
 
 
 class Log(models.Model):

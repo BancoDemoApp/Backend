@@ -3,6 +3,7 @@ from django.contrib.auth.hashers import make_password, check_password
 from django.db import transaction as db_transaction
 from .models import Usuario, Cuenta, Transaccion, Log
 import random
+from django.utils.timezone import now
 
 class UsuarioSerializer(serializers.ModelSerializer):
     """
@@ -165,18 +166,20 @@ class CuentaSerializer(serializers.Serializer):
 
         return cuenta
     
+
+class UsuarioSimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Usuario
+        fields = ['id', 'nombre', 'correo_electronico']
+
 class CuentaDetalleSerializer(serializers.ModelSerializer):
+    id_usuario = UsuarioSimpleSerializer(read_only=True)
+
     class Meta:
         model = Cuenta
-        fields = [
-            'id_cuenta',
-            'numero_cuenta',
-            'tipo',
-            'saldo',
-            'estado',
-        ]
+        fields = ['id_cuenta', 'numero_cuenta', 'tipo', 'saldo', 'estado', 'id_usuario']
     
-    
+   
 class TransaccionSerializer(serializers.ModelSerializer):
     """
     Serializer para registrar depósitos, retiros y transferencias.
@@ -184,8 +187,10 @@ class TransaccionSerializer(serializers.ModelSerializer):
     - Operadores pueden hacer depósitos y retiros.
     - Clientes pueden hacer transferencias entre cuentas propias y otras.
     """
+
     correo_cliente = serializers.EmailField(write_only=True, required=False)  # Solo para operadores
     numero_cuenta_destino = serializers.CharField(write_only=True, required=False)  # Solo para transferencias
+    id_cuenta_id = serializers.IntegerField(write_only=True)  # Recibe el ID desde el frontend
 
     class Meta:
         model = Transaccion
@@ -195,21 +200,30 @@ class TransaccionSerializer(serializers.ModelSerializer):
             'cantidad',
             'fecha',
             'estado',
-            'id_cuenta',
+            'id_cuenta',             # Relación a objeto Cuenta (read-only)
+            'id_cuenta_id',          # Campo de entrada real
             'correo_cliente',
             'numero_cuenta_destino',
             'id_operador',
             'id_cuenta_destino',
         ]
-        read_only_fields = ['estado', 'fecha', 'id_operador', 'id_cuenta_destino']
+        read_only_fields = ['estado', 'fecha', 'id_operador', 'id_cuenta', 'id_cuenta_destino']
 
     def validate(self, attrs):
         user = self.context['request'].user
         tipo = attrs.get('tipo')
         cantidad = attrs.get('cantidad')
-        cuenta_origen = attrs.get('id_cuenta')
+        cuenta_id = attrs.get('id_cuenta_id')
 
-        # Nueva validación: evitar montos negativos o cero
+        # Validar cuenta
+        try:
+            cuenta_origen = Cuenta.objects.get(pk=cuenta_id)
+        except Cuenta.DoesNotExist:
+            raise serializers.ValidationError("La cuenta de origen no existe.")
+
+        attrs['id_cuenta'] = cuenta_origen  # Convertimos el ID en instancia
+
+        # Validaciones generales
         if cantidad is None or cantidad <= 0:
             raise serializers.ValidationError("La cantidad debe ser mayor a cero.")
 
@@ -231,7 +245,6 @@ class TransaccionSerializer(serializers.ModelSerializer):
                 attrs['estado'] = 'Cancelada'
             else:
                 attrs['estado'] = 'Pendiente'
-
         else:
             raise serializers.ValidationError("Tipo de transacción no válido.")
 
@@ -250,6 +263,7 @@ class TransaccionSerializer(serializers.ModelSerializer):
             'cantidad': cantidad,
             'id_cuenta': cuenta_origen,
             'estado': estado,
+            'fecha': now(),
         }
 
         if tipo == 'Transferencia':
@@ -271,19 +285,20 @@ class TransaccionSerializer(serializers.ModelSerializer):
                 transaccion_data['id_cuenta_destino'] = cuenta_destino
 
         elif tipo == 'Deposito':
+            transaccion_data['id_operador'] = user
             cuenta_origen.saldo += cantidad
             cuenta_origen.save()
             estado = 'Completada'
-            transaccion_data['id_operador'] = user
 
         elif tipo == 'Retiro':
+            transaccion_data['id_operador'] = user
             if cuenta_origen.saldo >= cantidad:
                 cuenta_origen.saldo -= cantidad
                 cuenta_origen.save()
                 estado = 'Completada'
             else:
+                transaccion_data['id_operador'] = user
                 estado = 'Cancelada'
-            transaccion_data['id_operador'] = user
 
         transaccion_data['estado'] = estado
 
@@ -297,3 +312,4 @@ class TransaccionSerializer(serializers.ModelSerializer):
         )
 
         return transaccion
+

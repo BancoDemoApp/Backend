@@ -11,6 +11,10 @@ from django.db.models import Q
 from datetime import timedelta
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from django.utils.timezone import now
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from datetime import datetime
 
 
 class UsuarioCreateView(generics.CreateAPIView):
@@ -88,10 +92,29 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+
+        if response.status_code == 200:
+            correo = request.data.get("correo_electronico")
+            try:
+                usuario = Usuario.objects.get(correo_electronico=correo)
+                Log.objects.create(
+                    id_usuario=usuario,
+                    accion='Inicio de sesión',
+                    descripcion='Inicio de sesión exitoso',
+                    fecha=now()
+                )
+            except Usuario.DoesNotExist:
+                pass  # No logueamos si el usuario no existe (aunque no debería pasar)
+
+        return response
     
 class PerfilClienteAPIView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UsuarioPerfilSerializer
+    pagination_class = None
 
     def get_object(self):
         # Esto asegura que solo el usuario autenticado vea/modifique su perfil
@@ -108,6 +131,7 @@ class CuentaCreateView(generics.CreateAPIView):
     queryset = Cuenta.objects.all()
     serializer_class = CuentaSerializer
     permission_classes = [IsAuthenticated, EsOperador]
+    pagination_class = None
     
     @swagger_auto_schema(
         operation_summary="Crear cuenta bancaria",
@@ -130,6 +154,7 @@ class TransaccionCreateView(generics.CreateAPIView):
     queryset = Transaccion.objects.all()
     serializer_class = TransaccionSerializer
     permission_classes = [IsAuthenticated, EsOperador]
+    pagination_class = None
     
     def perform_create(self, serializer):
         user = self.request.user
@@ -151,6 +176,7 @@ class MisCuentasView(generics.ListAPIView):
     """
     serializer_class = CuentaDetalleSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None
     
     def get_queryset(self):
         # Solo cuentas del cliente autenticado
@@ -193,6 +219,7 @@ class TransaccionListView(generics.ListAPIView):
     """
     serializer_class = TransaccionSerializer
     permission_classes = [IsAuthenticated]
+    
 
     def get_queryset(self):
         user = self.request.user
@@ -229,9 +256,12 @@ class LogListView(generics.ListAPIView):
     """
     Ver historial de acciones (logs) realizados por los usuarios (solo operadores).
 
-    Se pueden aplicar filtros por:
-    - ID del usuario
-    - tipo de acción (e.g., transferencia, cancelación)
+    Filtros disponibles:
+    - usuario_id
+    - accion
+    - q (búsqueda en descripción)
+    - desde (YYYY-MM-DD)
+    - hasta (YYYY-MM-DD)
     """
     serializer_class = serializers.ModelSerializer
     permission_classes = [IsAuthenticated, EsOperador]
@@ -245,13 +275,29 @@ class LogListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = Log.objects.all().order_by('-fecha')
+
         usuario_id = self.request.query_params.get("usuario_id")
         accion = self.request.query_params.get("accion")
+        q = self.request.query_params.get("q")
+        desde = self.request.query_params.get("desde")
+        hasta = self.request.query_params.get("hasta")
 
         if usuario_id:
             queryset = queryset.filter(id_usuario__id_usuario=usuario_id)
+
         if accion:
             queryset = queryset.filter(accion__icontains=accion)
+
+        if q:
+            queryset = queryset.filter(descripcion__icontains=q)
+
+        if desde and hasta:
+            try:
+                desde_fecha = datetime.strptime(desde, "%Y-%m-%d")
+                hasta_fecha = datetime.strptime(hasta, "%Y-%m-%d")
+                queryset = queryset.filter(fecha__range=[desde_fecha, hasta_fecha])
+            except ValueError:
+                raise serializers.ValidationError("Formato de fecha inválido. Use YYYY-MM-DD.")
 
         return queryset
 
@@ -308,11 +354,14 @@ class BuscarCuentaView(generics.ListAPIView):
 
     Parámetro `numero`: número parcial o completo de cuenta.
     """
-    serializer_class = CuentaSerializer
+    serializer_class = CuentaDetalleSerializer
     permission_classes = [IsAuthenticated, EsOperador]
+    pagination_class = None
 
     def get_queryset(self):
         numero = self.request.query_params.get("numero")
+        if not numero:
+            return Cuenta.objects.none()
         return Cuenta.objects.filter(numero_cuenta__icontains=numero)
 
 
@@ -344,3 +393,18 @@ class ReporteTransaccionesView(generics.ListAPIView):
             queryset = queryset.filter(id_operador__id_usuario=operador_id)
 
         return queryset
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        Log.objects.create(
+            id_usuario=user,
+            accion="Cierre de sesión",
+            descripcion="Cierre de sesión del sistema",
+            fecha=now()
+        )
+
+        return Response({"message": "Cierre de sesión registrado correctamente."}, status=200)
