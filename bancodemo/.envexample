@@ -1,4 +1,4 @@
-SECRET_KEY='llave suer secreta'
+SECRET_KEY='llave super secreta'
 DEBUG=True
 DB_NAME=DATABASE
 DB_USER=USER

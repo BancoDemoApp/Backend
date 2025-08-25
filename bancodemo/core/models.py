@@ -37,7 +37,7 @@ class Log(models.Model):
     id_usuario = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='ID_Usuario', blank=True, null=True)  # Field name made lowercase.
     accion = models.CharField(db_column='Accion', max_length=255)  # Field name made lowercase.
     descripcion = models.TextField(db_column='Descripcion')  # Field name made lowercase.
-    fecha = models.DateTimeField(db_column='Fecha', blank=True, null=True)  # Field name made lowercase.
+    fecha = models.DateTimeField(db_column='Fecha', auto_now_add=True, null=False)  # Field name made lowercase.
 
     class Meta:
         managed = False
@@ -57,7 +57,7 @@ class Transaccion(models.Model):
     id_transaccion = models.AutoField(db_column='ID_Transaccion', primary_key=True)
     tipo = models.CharField(db_column='Tipo', max_length=13)
     cantidad = models.DecimalField(db_column='Cantidad', max_digits=10, decimal_places=2)
-    fecha = models.DateTimeField(db_column='Fecha', blank=True, null=True)
+    fecha = models.DateTimeField(db_column='Fecha', auto_now_add=True, null=False)
     estado = models.CharField(db_column='Estado', max_length=10)
     
     id_cuenta = models.ForeignKey(

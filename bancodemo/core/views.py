@@ -254,16 +254,14 @@ class ClienteListView(generics.ListAPIView):
 # 2. Ver logs de acciones
 class LogListView(generics.ListAPIView):
     """
-    Ver historial de acciones (logs) realizados por los usuarios (solo operadores).
+    Ver historial de acciones (logs) realizados por el operador autenticado.
 
     Filtros disponibles:
-    - usuario_id
     - accion
     - q (búsqueda en descripción)
     - desde (YYYY-MM-DD)
     - hasta (YYYY-MM-DD)
     """
-    serializer_class = serializers.ModelSerializer
     permission_classes = [IsAuthenticated, EsOperador]
 
     class LogSerializer(serializers.ModelSerializer):
@@ -274,16 +272,14 @@ class LogListView(generics.ListAPIView):
     serializer_class = LogSerializer
 
     def get_queryset(self):
-        queryset = Log.objects.all().order_by('-fecha')
+        # Solo logs del operador autenticado
+        usuario = self.request.user
+        queryset = Log.objects.filter(id_usuario=usuario).order_by('-fecha')
 
-        usuario_id = self.request.query_params.get("usuario_id")
         accion = self.request.query_params.get("accion")
         q = self.request.query_params.get("q")
         desde = self.request.query_params.get("desde")
         hasta = self.request.query_params.get("hasta")
-
-        if usuario_id:
-            queryset = queryset.filter(id_usuario__id_usuario=usuario_id)
 
         if accion:
             queryset = queryset.filter(accion__icontains=accion)

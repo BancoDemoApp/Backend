@@ -61,7 +61,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
                 tipo='Ahorros',
                 saldo=0.00,
                 estado='Activa',
-                id=usuario
+                id_usuario=usuario
             )
 
         return usuario
@@ -90,7 +90,7 @@ class ActualizarContrasenaSerializer(serializers.Serializer):
 
     def save(self, **kwargs):
         user = self.context['request'].user
-        user.password = make_password(self.validated_data['nueva_contrasena'])
+        user.password = make_password(self.validated_data['nueva_contrasena']) # type: ignore
         user.save()
         return user
     
@@ -263,7 +263,6 @@ class TransaccionSerializer(serializers.ModelSerializer):
             'cantidad': cantidad,
             'id_cuenta': cuenta_origen,
             'estado': estado,
-            'fecha': now(),
         }
 
         if tipo == 'Transferencia':
