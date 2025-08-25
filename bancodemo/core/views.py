@@ -73,10 +73,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         refresh = RefreshToken.for_user(user)
 
         # Token personalizado con duración distinta según tipo de usuario
-        if user.tipo == 'Operador':
+        if user.tipo == 'Operador': # type: ignore
             access_token = AccessToken.for_user(user)
             access_token.set_exp(lifetime=timedelta(hours=10))
-        elif user.tipo == 'Cliente':
+        elif user.tipo == 'Cliente': # pyright: ignore[reportAttributeAccessIssue]
             access_token = AccessToken.for_user(user)
             access_token.set_exp(lifetime=timedelta(minutes=10))
         else:
@@ -85,9 +85,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return {
             'refresh': str(refresh),
             'access': str(access_token),
-            'usuario_id': user.id,
-            'nombre': user.nombre,
-            'tipo': user.tipo,
+            'usuario_id': user.id, # type: ignore
+            'nombre': user.nombre, # type: ignore
+            'tipo': user.tipo, # type: ignore
         }
     
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -97,7 +97,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         response = super().post(request, *args, **kwargs)
 
         if response.status_code == 200:
-            correo = request.data.get("correo_electronico")
+            correo = request.data.get("correo_electronico") # pyright: ignore[reportAttributeAccessIssue]
             try:
                 usuario = Usuario.objects.get(correo_electronico=correo)
                 Log.objects.create(
@@ -116,7 +116,7 @@ class PerfilClienteAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = UsuarioPerfilSerializer
     pagination_class = None
 
-    def get_object(self):
+    def get_object(self): # pyright: ignore[reportIncompatibleMethodOverride]
         # Esto asegura que solo el usuario autenticado vea/modifique su perfil
         return self.request.user
 
@@ -164,7 +164,7 @@ class ActualizarContrasenaView(generics.UpdateAPIView):
     serializer_class = ActualizarContrasenaSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_object(self):
+    def get_object(self): # type: ignore
         return self.request.user
     
 ## Ver cuentas del cliente - Método GET
@@ -178,7 +178,7 @@ class MisCuentasView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = None
     
-    def get_queryset(self):
+    def get_queryset(self): # type: ignore
         # Solo cuentas del cliente autenticado
         return Cuenta.objects.filter(id_usuario=self.request.user)
     
@@ -204,7 +204,7 @@ class TransferenciaView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = self.request.user
-        if user.tipo != 'Cliente':
+        if user.tipo != 'Cliente': # type: ignore
             raise serializers.ValidationError("Solo los clientes pueden realizar transferencias.")
         serializer.save()
      
@@ -221,14 +221,14 @@ class TransaccionListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     
 
-    def get_queryset(self):
+    def get_queryset(self): # type: ignore
         user = self.request.user
 
-        if user.tipo == 'Cliente':
+        if user.tipo == 'Cliente': # type: ignore
             # Mostrar todas las transacciones donde el cliente sea dueño de la cuenta origen
             return Transaccion.objects.filter(id_cuenta__id_usuario=user).order_by('-fecha')
 
-        elif user.tipo == 'Operador':
+        elif user.tipo == 'Operador': # type: ignore
             # Mostrar solo transacciones donde el operador sea quien las realizó
             return Transaccion.objects.filter(id_operador=user).order_by('-fecha')
 
@@ -247,7 +247,7 @@ class ClienteListView(generics.ListAPIView):
     serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated, EsOperador]
 
-    def get_queryset(self):
+    def get_queryset(self): # type: ignore
         return Usuario.objects.filter(tipo='Cliente')
 
 
@@ -271,15 +271,15 @@ class LogListView(generics.ListAPIView):
 
     serializer_class = LogSerializer
 
-    def get_queryset(self):
+    def get_queryset(self): # type: ignore
         # Solo logs del operador autenticado
         usuario = self.request.user
         queryset = Log.objects.filter(id_usuario=usuario).order_by('-fecha')
 
-        accion = self.request.query_params.get("accion")
-        q = self.request.query_params.get("q")
-        desde = self.request.query_params.get("desde")
-        hasta = self.request.query_params.get("hasta")
+        accion = self.request.query_params.get("accion") # type: ignore
+        q = self.request.query_params.get("q") # type: ignore
+        desde = self.request.query_params.get("desde") # type: ignore
+        hasta = self.request.query_params.get("hasta") # type: ignore
 
         if accion:
             queryset = queryset.filter(accion__icontains=accion)
@@ -336,8 +336,8 @@ class BuscarClienteView(generics.ListAPIView):
     serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated, EsOperador]
 
-    def get_queryset(self):
-        query = self.request.query_params.get("q", "")
+    def get_queryset(self): # type: ignore
+        query = self.request.query_params.get("q", "") # type: ignore
         return Usuario.objects.filter(tipo='Cliente').filter(
             Q(nombre__icontains=query) | Q(correo_electronico__icontains=query)
         )
@@ -354,8 +354,8 @@ class BuscarCuentaView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, EsOperador]
     pagination_class = None
 
-    def get_queryset(self):
-        numero = self.request.query_params.get("numero")
+    def get_queryset(self): # type: ignore
+        numero = self.request.query_params.get("numero") # type: ignore
         if not numero:
             return Cuenta.objects.none()
         return Cuenta.objects.filter(numero_cuenta__icontains=numero)
@@ -374,12 +374,12 @@ class ReporteTransaccionesView(generics.ListAPIView):
     serializer_class = TransaccionSerializer
     permission_classes = [IsAuthenticated, EsOperador]
 
-    def get_queryset(self):
+    def get_queryset(self): # type: ignore
         queryset = Transaccion.objects.all().order_by('-fecha')
-        tipo = self.request.query_params.get("tipo")
-        desde = self.request.query_params.get("desde")  # formato YYYY-MM-DD
-        hasta = self.request.query_params.get("hasta")
-        operador_id = self.request.query_params.get("operador_id")
+        tipo = self.request.query_params.get("tipo") # type: ignore
+        desde = self.request.query_params.get("desde")  # type: ignore # formato YYYY-MM-DD
+        hasta = self.request.query_params.get("hasta") # type: ignore
+        operador_id = self.request.query_params.get("operador_id") # type: ignore
 
         if tipo:
             queryset = queryset.filter(tipo__iexact=tipo)
