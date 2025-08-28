@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
+import sys
 from pathlib import Path
 from .load_env import load_env_file
 
@@ -17,7 +18,27 @@ from .load_env import load_env_file
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_env_file(os.path.join(BASE_DIR, ".env"))
 
+TESTING = 'test' in sys.argv or 'pytest' in sys.argv
 
+if TESTING:
+    load_env_file(os.path.join(BASE_DIR, ".env.test"))
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ.get("DB_NAME"),
+            'USER': os.environ.get("DB_USER"), 
+            'PASSWORD': os.environ.get("DB_PASSWORD"),
+            'HOST': os.environ.get("DB_HOST", "localhost"),
+            'PORT': os.environ.get("DB_PORT", "3306"),
+        }
+    }
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -85,16 +106,7 @@ WSGI_APPLICATION = 'bancodemo.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get("DB_NAME"),
-        'USER': os.environ.get("DB_USER"), 
-        'PASSWORD': os.environ.get("DB_PASSWORD"),
-        'HOST': os.environ.get("DB_HOST", "localhost"),
-        'PORT': os.environ.get("DB_PORT", "3306"),
-    }
-}
+
 
 
 # Password validation
@@ -153,3 +165,4 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 AUTH_USER_MODEL = 'core.Usuario'
+

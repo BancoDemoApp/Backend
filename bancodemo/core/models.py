@@ -20,7 +20,7 @@ class Cuenta(models.Model):
     id_usuario = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='ID_Usuario')  # Field name made lowercase.
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'cuenta'
         ordering = ['id_cuenta']
 
@@ -40,7 +40,7 @@ class Log(models.Model):
     fecha = models.DateTimeField(db_column='Fecha', auto_now_add=True, null=False)  # Field name made lowercase.
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'log'
 
 
@@ -81,7 +81,7 @@ class Transaccion(models.Model):
     )
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'transaccion'
 
 class UsuarioManager(BaseUserManager):
@@ -124,3 +124,4 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         db_table = 'usuario'
+        ordering = ['id']

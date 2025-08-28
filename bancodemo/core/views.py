@@ -122,23 +122,30 @@ class PerfilClienteAPIView(generics.RetrieveUpdateAPIView):
 
 
 class CuentaCreateView(generics.CreateAPIView):
-    """
-    Crear una nueva cuenta bancaria (Solo operadores).
-
-    Los operadores pueden crear cuentas para los clientes existentes.
-    Se debe proporcionar el ID del cliente y los detalles de la cuenta (tipo, estado, etc.).
-    """
-    queryset = Cuenta.objects.all()
-    serializer_class = CuentaSerializer
-    permission_classes = [IsAuthenticated, EsOperador]
-    pagination_class = None
-    
-    @swagger_auto_schema(
-        operation_summary="Crear cuenta bancaria",
-        operation_description="Permite a un operador crear una cuenta para un cliente existente. Se debe enviar el correo del cliente y el tipo de cuenta."
-    )
-    def perform_create(self, serializer):
-        serializer.save()
+    """  
+    Crear una nueva cuenta bancaria (Solo operadores).  
+  
+    Los operadores pueden crear cuentas para los clientes existentes.  
+    Se debe proporcionar el correo del cliente y el tipo de cuenta (Ahorros o Corriente).  
+    """  
+    queryset = Cuenta.objects.all()  
+    serializer_class = CuentaSerializer  
+    permission_classes = [IsAuthenticated, EsOperador]  
+    pagination_class = None  
+  
+    def create(self, request, *args, **kwargs):  
+        """  
+        Usamos CuentaSerializer para validar/crear y luego re-serializamos la instancia creada  
+        con CuentaDetalleSerializer para devolver todos los campos relevantes.  
+        """  
+        serializer = self.get_serializer(data=request.data)  
+        serializer.is_valid(raise_exception=True)  
+        cuenta = serializer.save()  # retorna instancia de Cuenta  
+  
+        # Serializador de salida con detalle  
+        detalle_serializer = CuentaDetalleSerializer(cuenta)  
+        headers = self.get_success_headers(detalle_serializer.data)  
+        return Response(detalle_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
         
 class TransaccionCreateView(generics.CreateAPIView):
     """
