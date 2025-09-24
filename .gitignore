@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 migrations/
+.sonar/
+.codellm/
 
 # C extensions
 *.so
@@ -130,6 +132,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.test
 .venv
 env/
 venv/
@@ -193,3 +196,4 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+sonar-project.properties
