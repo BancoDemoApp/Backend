@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.hashers import make_password, check_password
 from django.db import transaction as db_transaction
 from .models import Usuario, Cuenta, Transaccion, Log
-import random
+import secrets
 from django.utils.timezone import now
 
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -60,9 +60,9 @@ class UsuarioSerializer(serializers.ModelSerializer):
         """
         Genera un número de cuenta con formato 999-9999999-99.
         """
-        parte1 = str(random.randint(100, 999))
-        parte2 = str(random.randint(1000000, 9999999))
-        parte3 = str(random.randint(10, 99))
+        parte1 = str(secrets.randbelow(900) + 100)        # 100–999
+        parte2 = str(secrets.randbelow(9000000) + 1000000)  # 1000000–9999999
+        parte3 = str(secrets.randbelow(90) + 10)          # 10–99
         return f"{parte1}-{parte2}-{parte3}"
 
     def _generate_unique_numero_cuenta(self):
@@ -125,7 +125,7 @@ class ActualizarContrasenaSerializer(serializers.Serializer):
         Actualiza la contraseña del usuario autenticado.
         """
         user = self.context['request'].user
-        nueva = self.validated_data["nueva_contrasena"]
+        nueva = self.validated_data["nueva_contrasena"] # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
         user.password = make_password(nueva)
         user.save()
         return user
@@ -156,9 +156,9 @@ class CuentaSerializer(serializers.Serializer):
     tipo = serializers.ChoiceField(choices=['Ahorros', 'Corriente'])
 
     def generate_numero_cuenta(self):
-        parte1 = str(random.randint(100, 999))
-        parte2 = str(random.randint(1000000, 9999999))
-        parte3 = str(random.randint(10, 99))
+        parte1 = str(secrets.randbelow(900) + 100)        # 100–999
+        parte2 = str(secrets.randbelow(9000000) + 1000000)  # 1000000–9999999
+        parte3 = str(secrets.randbelow(90) + 10)          # 10–99
         return f"{parte1}-{parte2}-{parte3}"
 
     def generate_unique_numero_cuenta(self):
