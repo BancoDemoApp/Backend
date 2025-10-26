@@ -111,3 +111,5 @@ Este proyecto es solo con fines educativos y puede ser adaptado libremente.
 ## 🙋‍♂️ Autor
 
 Desarrollado por Oscar Palomino - 2025
+
+PySonar: pysonar --sonar-host-url=http://localhost:9000 --sonar-token=sqp_49346665abe6a6fe23674b9d8c521d6090cc53a8 --sonar-project-key=Bancodemo

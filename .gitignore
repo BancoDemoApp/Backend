@@ -197,3 +197,4 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 sonar-project.properties
+.vscode/

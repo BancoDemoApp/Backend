@@ -49,7 +49,13 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "oscarpalomino.dev",
+    "www.oscarpalomino.dev",
+    "oscarpalomino.dev/bancodemo/",
+    "www.oscarpalomino.dev/bancodemo/",
+    "http://72.61.0.102:5173/bancodemo/",
+]
 
 
 # Application definition
