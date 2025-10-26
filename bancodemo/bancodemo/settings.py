@@ -50,7 +50,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = [
-    "bancodemo_frontend:5173",
+    "https://bancodemo_frontend:5173",
 ]
 
 
@@ -164,7 +164,7 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "bancodemo_frontend:5173",]
+    "https://bancodemo_frontend:5173",]
 
 AUTH_USER_MODEL = 'core.Usuario'
 
