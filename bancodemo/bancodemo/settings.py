@@ -55,6 +55,7 @@ ALLOWED_HOSTS = [
     "oscarpalomino.dev/bancodemo/",
     "www.oscarpalomino.dev/bancodemo/",
     "http://72.61.0.102:5173/bancodemo/",
+    "0.0.0.0",
 ]
 
 
@@ -168,6 +169,11 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "oscarpalomino.dev",
+    "www.oscarpalomino.dev",
+    "oscarpalomino.dev/bancodemo/",
+    "www.oscarpalomino.dev/bancodemo/",
+    "http://72.61.0.102:5173/bancodemo/",
 ]
 
 AUTH_USER_MODEL = 'core.Usuario'
