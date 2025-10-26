@@ -50,12 +50,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = [
-    "oscarpalomino.dev",
-    "www.oscarpalomino.dev",
-    "oscarpalomino.dev/bancodemo/",
-    "www.oscarpalomino.dev/bancodemo/",
-    "http://72.61.0.102:5173/bancodemo/",
-    "0.0.0.0",
+    "bancodemo_frontend:5173",
 ]
 
 
@@ -169,12 +164,7 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "oscarpalomino.dev",
-    "www.oscarpalomino.dev",
-    "oscarpalomino.dev/bancodemo/",
-    "www.oscarpalomino.dev/bancodemo/",
-    "http://72.61.0.102:5173/bancodemo/",
-]
+    "bancodemo_frontend:5173",]
 
 AUTH_USER_MODEL = 'core.Usuario'
 
